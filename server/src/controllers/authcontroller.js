@@ -491,7 +491,7 @@ const forgotPassword = async (req, res) => {
       (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "") ||
       "http://localhost:3000";
     const resetUrl =
-      `${String(baseUrl).trim().replace(/\\/+$/, "")}/reset-password?token=${rawToken}`;
+      `${String(baseUrl).trim().replace(/\/+$/, "")}/reset-password?token=${rawToken}`;
 
     try {
       const transporter = nodemailer.createTransport({
