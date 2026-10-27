@@ -25,8 +25,12 @@ const page = () => {
     setError("");
     try {
       await register(formData.name, formData.email, formData.password);
-    } catch (error) {
-      setError("Failed to create account. Please try again.");
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to create account. Please try again.";
+      setError(message);
     }
   };
   return (
