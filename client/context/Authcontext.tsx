@@ -191,8 +191,10 @@ export function AuthProvider({
 
           router.replace(getRoleHome(registeredUser.role));
         } else {
-          // Registration may require email verification.
-          router.replace("/login");
+          // Registration requires email verification via OTP.
+          router.replace(
+            `/verify-email?email=${encodeURIComponent(email)}`
+          );
         }
       } finally {
         setIsLoading(false);

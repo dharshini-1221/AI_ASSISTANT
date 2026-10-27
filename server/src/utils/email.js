@@ -1,4 +1,3 @@
-
 const nodemailer = require("nodemailer");
 
 const transporter = nodemailer.createTransport({
@@ -25,23 +24,20 @@ const escapeHtml = (value = "") =>
     return entities[char];
   });
 
-
 const getClientUrl = () => {
   const raw =
     process.env.CLIENT_URL ||
     (process.env.VERCEL_PROJECT_PRODUCTION_URL
-      ? `https://undefined`
+      ? "https://" + process.env.VERCEL_PROJECT_PRODUCTION_URL
       : "") ||
-    (process.env.VERCEL_URL ? `https://undefined` : "") ||
+    (process.env.VERCEL_URL ? "https://" + process.env.VERCEL_URL : "") ||
     "http://localhost:3000";
   return String(raw).trim().replace(/\/+$/, "");
 };
 
-const sendVerificationEmail = async (email, name, verificationToken) => {
-  const verificationUrl =
-    `${getClientUrl()}/verify-email?token=${encodeURIComponent(verificationToken)}`;
-
+const sendVerificationEmail = async (email, name, otp) => {
   const safeName = escapeHtml(name);
+  const safeOtp = escapeHtml(otp);
 
   await transporter.sendMail({
     from: `"AI Mock Interview" <${process.env.EMAIL_FROM}>`,
@@ -51,13 +47,12 @@ const sendVerificationEmail = async (email, name, verificationToken) => {
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:30px;border:1px solid #ddd;border-radius:12px;">
         <h2 style="color:#2563eb;">Welcome to AI Mock Interview, ${safeName}!</h2>
         <p>Thank you for creating your account.</p>
-        <p>Please verify your email address using the button below.</p>
-        <p style="margin:30px 0;">
-          <a href="${verificationUrl}" style="background:#2563eb;color:white;padding:12px 24px;text-decoration:none;border-radius:8px;display:inline-block;">
-            Verify Email
-          </a>
+        <p>Please verify your email address using the one-time passcode below.</p>
+        <p style="margin:30px 0;font-size:32px;font-weight:700;letter-spacing:6px;color:#2563eb;text-align:center;">
+          ${safeOtp}
         </p>
-        <p>This verification link expires in <strong>15 minutes</strong>.</p>
+        <p>Enter this code on the verification page to activate your account.</p>
+        <p>This code expires in <strong>15 minutes</strong>.</p>
         <p style="color:#666;font-size:13px;">If you did not create this account, ignore this email.</p>
       </div>
     `,

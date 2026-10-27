@@ -29,6 +29,7 @@ router.delete(
 
 // Email verification
 router.post("/verify-email", authController.verifyEmail);
+router.post("/resend-verification", authController.resendVerification);
 
 // Password reset
 router.post("/forgot-password", authController.forgotPassword);

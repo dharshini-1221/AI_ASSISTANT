@@ -8,9 +8,11 @@ test("register page renders form", async ({ page }) => {
   await expect(page.getByLabel(/password/i)).toBeVisible();
 });
 
-test("verify-email without token shows error", async ({ page }) => {
+test("verify-email shows OTP form", async ({ page }) => {
   await page.goto("/verify-email");
-  await expect(page.getByText(/verification token is missing/i)).toBeVisible({ timeout: 15000 });
+  await expect(page.getByRole("heading", { name: /verify your email/i })).toBeVisible({ timeout: 15000 });
+  await expect(page.getByLabel(/email/i)).toBeVisible();
+  await expect(page.getByLabel(/verification code/i)).toBeVisible();
 });
 
 test("verify-email with invalid token shows failure", async ({ page }) => {

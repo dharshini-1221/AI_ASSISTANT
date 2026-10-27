@@ -99,12 +99,12 @@ const register = async (req, res) => {
       emailVerified: false,
     });
 
-    // Generate email verification token
-    const rawToken = crypto.randomBytes(32).toString("hex");
+    // Generate 6-digit OTP
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
 
     const tokenHash = crypto
       .createHash("sha256")
-      .update(rawToken)
+      .update(otp)
       .digest("hex");
 
     await EmailVerificationToken.create({
@@ -118,7 +118,7 @@ const register = async (req, res) => {
       await sendVerificationEmail(
         user.email,
         user.name,
-        rawToken
+        otp
       );
     } catch (mailError) {
       await EmailVerificationToken.deleteMany({
@@ -369,11 +369,61 @@ return res.json({
 
 const verifyEmail = async (req, res) => {
   try {
-    const { token } = req.body;
+    const { token, email, otp } = req.body || {};
 
+    // OTP-based flow
+    if (email && otp) {
+      const normalizedEmail = String(email).trim().toLowerCase();
+      const user = await User.findOne({ email: normalizedEmail });
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (user.emailVerified) {
+        return res.status(200).json({ message: "Email already verified" });
+      }
+
+      const tokenHash = crypto
+        .createHash("sha256")
+        .update(String(otp).trim())
+        .digest("hex");
+
+      const verificationToken = await EmailVerificationToken.findOne({
+        userId: user._id,
+        tokenHash,
+      });
+
+      if (!verificationToken) {
+        return res.status(400).json({
+          message: "Invalid verification code",
+        });
+      }
+
+      if (verificationToken.expiresAt <= new Date()) {
+        await EmailVerificationToken.deleteOne({
+          _id: verificationToken._id,
+        });
+
+        return res.status(400).json({
+          message: "Verification code has expired",
+        });
+      }
+
+      user.emailVerified = true;
+      await user.save();
+
+      await EmailVerificationToken.deleteMany({ userId: user._id });
+
+      return res.status(200).json({
+        message: "Email verified successfully",
+      });
+    }
+
+    // Legacy token-based flow
     if (typeof token !== "string" || !token) {
       return res.status(400).json({
-        message: "Verification token is required",
+        message: "Verification token or OTP is required",
       });
     }
 
@@ -904,6 +954,54 @@ const logout = async (req, res) => {
 
 
 
+
+const resendVerification = async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const user = await User.findOne({ email: normalizedEmail });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    if (user.emailVerified) {
+      return res.status(200).json({ message: "Email already verified" });
+    }
+
+    await EmailVerificationToken.deleteMany({ userId: user._id });
+
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(otp)
+      .digest("hex");
+
+    await EmailVerificationToken.create({
+      userId: user._id,
+      tokenHash,
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+    });
+
+    try {
+      await sendVerificationEmail(user.email, user.name, otp);
+    } catch (mailError) {
+      await EmailVerificationToken.deleteMany({ userId: user._id });
+      console.error("RESEND VERIFICATION EMAIL ERROR:", mailError.message);
+      return res.status(503).json({
+        message: "Unable to send verification email. Please try again later.",
+      });
+    }
+
+    return res.status(200).json({ message: "Verification code sent" });
+  } catch (err) {
+    console.error("RESEND VERIFICATION ERROR:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
 // =========================
 // EXPORTS
 // =========================
@@ -913,6 +1011,7 @@ module.exports = {
   login,
   getMe,
   verifyEmail,
+  resendVerification,
   forgotPassword,
   resetPassword,
   getLoginHistory,
