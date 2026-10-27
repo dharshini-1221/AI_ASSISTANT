@@ -483,8 +483,15 @@ const forgotPassword = async (req, res) => {
       expiresAt: new Date(Date.now() + 15 * 60 * 1000),
     });
 
+    const baseUrl =
+      process.env.CLIENT_URL ||
+      (process.env.VERCEL_PROJECT_PRODUCTION_URL
+        ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+        : "") ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "") ||
+      "http://localhost:3000";
     const resetUrl =
-      `${process.env.CLIENT_URL}/reset-password?token=${rawToken}`;
+      `${String(baseUrl).trim().replace(/\\/+$/, "")}/reset-password?token=${rawToken}`;
 
     try {
       const transporter = nodemailer.createTransport({

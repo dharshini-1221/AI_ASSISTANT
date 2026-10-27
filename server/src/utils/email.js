@@ -25,9 +25,21 @@ const escapeHtml = (value = "") =>
     return entities[char];
   });
 
+
+const getClientUrl = () => {
+  const raw =
+    process.env.CLIENT_URL ||
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://undefined`
+      : "") ||
+    (process.env.VERCEL_URL ? `https://undefined` : "") ||
+    "http://localhost:3000";
+  return String(raw).trim().replace(/\/+$/, "");
+};
+
 const sendVerificationEmail = async (email, name, verificationToken) => {
   const verificationUrl =
-    `${process.env.CLIENT_URL}/verify-email?token=${encodeURIComponent(verificationToken)}`;
+    `${getClientUrl()}/verify-email?token=${encodeURIComponent(verificationToken)}`;
 
   const safeName = escapeHtml(name);
 
