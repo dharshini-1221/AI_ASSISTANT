@@ -1,11 +1,11 @@
-const { createLazyGroq } = require("../utils/groqClient.js");
+const { createLazyGemini } = require("../utils/geminiClient.js");
 
 const Challenge = require("../models/Challenge.js");
 const ChallengeAttempt = require("../models/ChallengeAttempt.js");
 const PeerProfile = require("../models/PeerProfile.js");
 const RankingHistory = require("../models/RankingHistory.js");
 
-const groq = createLazyGroq({ timeout: 45000 });
+const gemini = createLazyGemini({ timeout: 45000 });
 
 // --------------------------------------------------
 // HELPERS
@@ -202,7 +202,7 @@ async function generateAIChallenge({
   // FALLBACK WHEN GROQ API KEY IS NOT AVAILABLE
   // --------------------------------------------------
 
-  if (!process.env.GROQ_API_KEY) {
+  if (!process.env.GEMINI_API_KEY) {
     return {
       questions: fallback.map((q) => ({
         ...q,
@@ -279,10 +279,10 @@ Rules:
 
   try {
     const response =
-      await groq.chat.completions.create({
+      await gemini.chat.completions.create({
         model:
-          process.env.GROQ_MODEL ||
-          "openai/gpt-oss-120b",
+          process.env.GEMINI_MODEL ||
+          "gemini-3.5-flash",
 
         messages: [
           {
@@ -715,7 +715,7 @@ async function evaluateAnswer({
   const fallbackScore =
     answer.trim() ? 60 : 0;
 
-  if (!process.env.GROQ_API_KEY) {
+  if (!process.env.GEMINI_API_KEY) {
     return {
       score: fallbackScore,
 
@@ -781,10 +781,10 @@ Rules:
 
   try {
     const response =
-      await groq.chat.completions.create({
+      await gemini.chat.completions.create({
         model:
-          process.env.GROQ_MODEL ||
-          "openai/gpt-oss-120b",
+          process.env.GEMINI_MODEL ||
+          "gemini-3.5-flash",
 
         messages: [
           {

@@ -1,11 +1,11 @@
-const { createLazyGroq } = require("../utils/groqClient.js");
+const { createLazyGemini } = require("../utils/geminiClient.js");
 const PlacementReadiness = require("../models/PlacementReadiness.js");
 const Interview = require("../models/Interview.js");
 const ResumeAnalysis = require("../models/ResumeAnalysis.js");
 const User = require("../models/User.js");
 const SkillAssessment = require("../models/SkillAssessment.js");
 
-const groq = createLazyGroq({ timeout: 45000 });
+const gemini = createLazyGemini({ timeout: 45000 });
 
 const CONFIG = {
   weights: {
@@ -231,7 +231,7 @@ function deterministicRoadmap({ candidateType, gaps, resume }) {
 
 async function generateAIRoadmap(input) {
   const fallback = deterministicRoadmap(input);
-  if (!process.env.GROQ_API_KEY) return fallback;
+  if (!process.env.GEMINI_API_KEY) return fallback;
 
   const prompt = `You are an expert placement coach. Create a practical, personalized roadmap from verified candidate data.
 Candidate type: ${input.candidateType}
@@ -253,8 +253,8 @@ Return ONLY JSON:
 Rules: 4-8 technologies, 2-4 projects, 2-4 certifications, 6-10 interview topics. Every recommendation must directly address a gap or target domain. Do not recommend a technology already present in resume skills unless it is for deeper mastery. Candidate type must materially change the roadmap.`;
 
   try {
-    const response = await groq.chat.completions.create({
-      model: process.env.GROQ_MODEL || "openai/gpt-oss-120b",
+    const response = await gemini.chat.completions.create({
+      model: process.env.GEMINI_MODEL || "gemini-3.5-flash",
       messages: [{ role: "user", content: prompt }],
       temperature: 0.2,
       response_format: { type: "json_object" },

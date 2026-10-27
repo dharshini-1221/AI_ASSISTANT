@@ -1,4 +1,4 @@
-const { createLazyGroq } = require("../utils/groqClient.js");
+const { createLazyGemini } = require("../utils/geminiClient.js");
 const Interview = require("../models/Interview.js");
 const companyProfiles = require("../config/companyProfiles");
 
@@ -18,7 +18,7 @@ const ANSWER_SEMANTIC_SIMILARITY_THRESHOLD = 0.35;
 const QUESTION_SIMILARITY_THRESHOLD = 0.72;
 const QUESTION_CHARACTER_THRESHOLD = 0.86;
 
-const groq = createLazyGroq();
+const gemini = createLazyGemini();
 
 // ============================================================
 // GENERAL HELPERS
@@ -939,9 +939,9 @@ const evaluateAnswer = async ({
     );
 
   const response =
-    await groq.chat.completions.create({
+    await gemini.chat.completions.create({
       model:
-        "openai/gpt-oss-120b",
+        "gemini-3.5-flash",
 
       messages: [
         {
@@ -1518,9 +1518,9 @@ const generateAIQuestion = async ({
     );
 
   const response =
-    await groq.chat.completions.create({
+    await gemini.chat.completions.create({
       model:
-        "openai/gpt-oss-120b",
+        "gemini-3.5-flash",
 
       messages: [
         {
@@ -2183,10 +2183,10 @@ const startInterview =
       // ======================================================
 
       let completion =
-        await groq.chat.completions.create(
+        await gemini.chat.completions.create(
           {
             model:
-              "openai/gpt-oss-120b",
+              "gemini-3.5-flash",
 
             messages: [
               {
@@ -2237,10 +2237,10 @@ const startInterview =
         );
 
         completion =
-          await groq.chat.completions.create(
+          await gemini.chat.completions.create(
             {
               model:
-                "openai/gpt-oss-120b",
+                "gemini-3.5-flash",
 
               messages: [
                 {
