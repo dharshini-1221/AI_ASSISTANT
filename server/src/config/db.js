@@ -2,15 +2,30 @@ const mongoose = require("mongoose");
 const dns = require("dns");
 
 /*
-  Some hosts (including serverless platforms) resolve MongoDB
-  SRV records slowly through the default resolver. Google DNS is
-  used as a fallback. This is best-effort only, so a failure to
-  set the servers must not stop the app from booting.
+  Some hosts resolve MongoDB SRV records slowly through the default
+  resolver, so Google DNS can be used as a fallback. This is best-effort
+  only, so a failure to set the servers must not stop the app from
+  booting.
+
+  On Vercel the platform resolver handles Atlas SRV lookups correctly
+  and outbound DNS to a third-party resolver is an extra failure mode,
+  so the override is skipped there unless DB_DNS_SERVERS is set
+  explicitly.
 */
-try {
-  dns.setServers(["8.8.8.8", "8.8.4.4"]);
-} catch (_) {
-  // Ignore: the platform resolver is used instead.
+const dnsServers = process.env.DB_DNS_SERVERS
+  ? process.env.DB_DNS_SERVERS.split(",")
+      .map((server) => server.trim())
+      .filter(Boolean)
+  : process.env.VERCEL
+    ? []
+    : ["8.8.8.8", "8.8.4.4"];
+
+if (dnsServers.length > 0) {
+  try {
+    dns.setServers(dnsServers);
+  } catch (_) {
+    // Ignore: the platform resolver is used instead.
+  }
 }
 
 /*

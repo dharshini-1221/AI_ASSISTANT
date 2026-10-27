@@ -1,4 +1,4 @@
-const Groq = require("groq-sdk");
+const { createLazyGroq } = require("../utils/groqClient.js");
 const pdfjslib = require("pdfjs-dist/legacy/build/pdf.js");
 const path = require("path");
 
@@ -12,10 +12,7 @@ const { createWorker } = require("tesseract.js");
    GROQ
 ========================================================= */
 
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
-  timeout: 120000,
-});
+const groq = createLazyGroq({ timeout: 120000 });
 
 /* =========================================================
    AVAILABLE INTERVIEW DOMAINS

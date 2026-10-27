@@ -8,11 +8,18 @@ import { clearAuth } from "@/lib/auth";
 
 const TOKEN_KEY = "token";
 
+// In production the client and the Express API are served from the same Vercel
+// deployment (the /api/* rewrite routes to the server service), so requests use
+// a relative URL and never cross origins. Locally the API runs on port 5000.
+const baseURL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (process.env.NODE_ENV === "development" ? "http://localhost:5000" : "");
+
+// No default Content-Type: axios sets "application/json" automatically for
+// plain-object bodies, while a hard-coded default would make axios treat
+// FormData bodies as JSON (and strip the multipart boundary).
 const axiosInstance = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000",
-  headers: {
-    "Content-Type": "application/json",
-  },
+  baseURL,
   timeout: 30000,
 });
 

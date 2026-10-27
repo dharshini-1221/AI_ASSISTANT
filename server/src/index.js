@@ -26,9 +26,20 @@ if (process.env.TRUST_PROXY === "true") {
 }
 
 // CORS configuration
-const allowedOrigins = (
-  process.env.CLIENT_URL || "http://localhost:3000"
-)
+// CLIENT_URL accepts a comma-separated list of allowed browser origins. On
+// Vercel the deployment and production hostnames are appended automatically, so
+// same-origin calls work without extra configuration.
+const configuredOrigins = [
+  process.env.CLIENT_URL || "http://localhost:3000",
+  process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "",
+  process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : "",
+]
+  .filter(Boolean)
+  .join(",");
+
+const allowedOrigins = configuredOrigins
   .split(",")
   .map((origin) => origin.trim().replace(/\/+$/, ""))
   .filter(Boolean);
@@ -67,6 +78,40 @@ app.get("/", (req, res) => {
     success: true,
     message: "Backend is running!",
   });
+});
+
+// Public API health check. Reachable in production at /api/health because the
+// top-level Vercel rewrite sends /api/* to this Express service.
+app.get("/api/health", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Backend is running!",
+  });
+});
+
+// Ensure a MongoDB connection exists before any API route runs.
+// On a long-running server, startServer() has already connected and this is a
+// no-op (the cached connection resolves immediately). On Vercel the Express app
+// is invoked as a function without startServer(), so the connection is
+// established lazily on the first request of each instance.
+app.use(async (req, res, next) => {
+  if (!process.env.JWT_SECRET) {
+    return res.status(500).json({
+      success: false,
+      message: "Server is not configured: JWT_SECRET is missing.",
+    });
+  }
+
+  try {
+    await connectDB();
+    return next();
+  } catch (error) {
+    console.error("Database connection unavailable:", error.message);
+    return res.status(503).json({
+      success: false,
+      message: "Database is unavailable. Please try again shortly.",
+    });
+  }
 });
 
 // API routes

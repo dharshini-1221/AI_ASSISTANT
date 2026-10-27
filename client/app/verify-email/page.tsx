@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import axios from "axios";
+import axiosInstance from "@/lib/axios";
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -22,8 +22,8 @@ export default function VerifyEmailPage() {
 
     const verifyEmail = async () => {
       try {
-        const response = await axios.post(
-          "http://localhost:5000/api/auth/verify-email",
+        const response = await axiosInstance.post(
+          "/api/auth/verify-email",
           {
             token,
           }
@@ -181,5 +181,28 @@ export default function VerifyEmailPage() {
         )}
       </div>
     </main>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense
+      fallback={
+        <main
+          style={{
+            minHeight: "100vh",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            background: "#f8fafc",
+            padding: "20px",
+          }}
+        >
+          <p style={{ color: "#64748b" }}>Verifying your email...</p>
+        </main>
+      }
+    >
+      <VerifyEmailContent />
+    </Suspense>
   );
 }

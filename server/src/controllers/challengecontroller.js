@@ -1,14 +1,11 @@
-const Groq = require("groq-sdk");
+const { createLazyGroq } = require("../utils/groqClient.js");
 
 const Challenge = require("../models/Challenge.js");
 const ChallengeAttempt = require("../models/ChallengeAttempt.js");
 const PeerProfile = require("../models/PeerProfile.js");
 const RankingHistory = require("../models/RankingHistory.js");
 
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
-  timeout: 45000,
-});
+const groq = createLazyGroq({ timeout: 45000 });
 
 // --------------------------------------------------
 // HELPERS

@@ -1,4 +1,4 @@
-const Groq = require("groq-sdk");
+const { createLazyGroq } = require("../utils/groqClient.js");
 const Interview = require("../models/Interview.js");
 const companyProfiles = require("../config/companyProfiles");
 
@@ -18,9 +18,7 @@ const ANSWER_SEMANTIC_SIMILARITY_THRESHOLD = 0.35;
 const QUESTION_SIMILARITY_THRESHOLD = 0.72;
 const QUESTION_CHARACTER_THRESHOLD = 0.86;
 
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
-});
+const groq = createLazyGroq();
 
 // ============================================================
 // GENERAL HELPERS

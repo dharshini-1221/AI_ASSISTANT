@@ -1,13 +1,38 @@
 # Deployment Guide
 
-The project ships as two independently deployable apps:
+The repository deploys as **one Vercel project with two services**, declared in
+the root `vercel.json`:
 
-| App | Folder | Stack | Runs on |
+| Service | Root | Stack | Public path |
 | --- | --- | --- | --- |
-| Client | `client/` | Next.js 16 (App Router) | Vercel (static + server rendering) |
-| Server | `server/` | Express 5 + Mongoose | Vercel (serverless function) |
+| `client` | `client/` | Next.js 16 (App Router) | every path except `/api/*` |
+| `server` | `server/` | Express 5 + Mongoose | `/api/*` |
 
-Deploy the **server first**, because the client needs its URL.
+Vercel routes `/api/*` to the Express service and everything else to the Next.js
+service **on the same domain**. The browser therefore never makes a cross-origin
+request, and no API URL has to be baked into the client build.
+
+### Confirmed configuration
+
+| Decision | Value |
+| --- | --- |
+| Service names | `client`, `server` |
+| Public routing | One domain. `/api/*` → `server`, every other path → `client` |
+| Bindings | None. The browser is the only caller of the API, so there is no service-to-service traffic to bind. `NEXT_PUBLIC_*` values are inlined at build time and cannot be sourced from a binding, which is why the client uses a relative API base URL. |
+
+**Assumptions baked into this setup**
+
+- The client always calls the API on its own origin (relative `/api/...`).
+  `NEXT_PUBLIC_API_URL` is only needed if the API is later moved to another host.
+- The Express function is detected by Vercel's zero-config support, which
+  resolves `server/src/index.js` (it exports the app, and does not call
+  `app.listen` on import).
+- OCR for scanned resumes is off on Vercel unless `ENABLE_OCR=true`; the native
+  canvas/Tesseract path is slow on cold starts. Selectable-text PDFs and DOCX
+  uploads are unaffected.
+- `CLIENT_URL` only needs to be set for a custom domain or a separately hosted
+  frontend — the Vercel deployment and production hostnames are allowed
+  automatically.
 
 ---
 
@@ -28,14 +53,15 @@ small pool (`maxPoolSize: 5`) is intentional.
 
 ---
 
-## 2. Server on Vercel
+## 2. Deploy the project on Vercel
 
-1. Import the repository into Vercel and set **Root Directory** to `server`.
-2. Framework preset: **Other**. Build command: leave empty. Output directory:
-   leave empty.
-3. Add the environment variables below (Production and Preview).
-4. Deploy. `server/vercel.json` routes every path to `api/index.js`, which
-   wraps the Express app.
+1. Import the repository. Leave **Root Directory** at `./` — the root
+   `vercel.json` defines both services.
+2. Vercel reads `services` and builds `client` (Next.js) and `server` (Express).
+3. Add the environment variables below to the project (Production and Preview).
+   They are shared by both services.
+4. Deploy. `client` runs `next build`; `server` is bundled as one function from
+   `server/src/index.js`, which exports the Express app.
 
 ### Required environment variables
 
@@ -58,14 +84,16 @@ small pool (`maxPoolSize: 5`) is intentional.
 | `TESSERACT_CACHE_PATH` | `/tmp` on Vercel | Trained-data cache location |
 | `READINESS_*` | 25/35/20/20, 80, 60 | Placement readiness weights and thresholds |
 
-`CLIENT_URL` accepts a comma-separated list. If you use preview deployments,
-either add each preview origin or point `CLIENT_URL` at the stable production
-alias; otherwise CORS rejects the browser request.
+`CLIENT_URL` accepts a comma-separated list. On Vercel the project's own
+deployment and production hostnames (`VERCEL_URL`,
+`VERCEL_PROJECT_PRODUCTION_URL`) are allowed automatically, so same-origin calls
+work with no extra configuration. Add `CLIENT_URL` only for custom domains or an
+externally hosted frontend.
 
 ### Verify
 
 ```bash
-curl https://your-server.vercel.app/
+curl https://your-project.vercel.app/api/health
 # {"success":true,"message":"Backend is running!"}
 ```
 
@@ -73,29 +101,33 @@ curl https://your-server.vercel.app/
 
 - **Uploads are capped at 4 MB** (`server/src/routes/resume.js`). Vercel rejects
   request bodies above 4.5 MB before Express sees them.
-- **`maxDuration` is 60s** and memory is 1 GB (`server/vercel.json`). Long AI
-  calls are the slowest path; the interview endpoints answer in a few seconds.
+- **Function duration defaults to 300s** on Hobby with Fluid compute, so long AI
+  calls are safe. The Groq SDK timeouts in the controllers (45s, 120s for resume
+  analysis) stay well inside that budget.
 - **OCR is disabled by default.** Selectable-text PDFs, DOCX and TXT still work.
   Scanned PDFs return a clear `400` explaining that OCR is off. Set
   `ENABLE_OCR=true` to enable it; the `@napi-rs/canvas` prebuilt binary is used
   and `node-canvas` is only an optional fallback.
 - **Cold starts** include the Mongo handshake. The connection promise is cached
-  per instance so warm invocations skip it.
+  per instance so warm invocations skip it, and the first request of a cold
+  instance connects lazily before any route runs.
+- **Bundle size** is capped at 250 MB per function and memory defaults to 2 GB /
+  1 vCPU on Hobby. `pdfjs-dist`, `tesseract.js` and the canvas binary fit
+  comfortably; do not add heavy native packages.
 
 ---
 
-## 3. Client on Vercel
+## 3. Client configuration
 
-1. Import the same repository again and set **Root Directory** to `client`.
-2. Framework preset is detected as **Next.js**.
-3. Add one environment variable:
+The client needs no configuration for the default deployment: API calls go to
+the relative `/api/*` path, which Vercel routes to the Express service.
 
-| Key | Value |
+| Key | When to set it |
 | --- | --- |
-| `NEXT_PUBLIC_API_URL` | `https://your-server.vercel.app` |
+| `NEXT_PUBLIC_API_URL` | Only when the API lives on another origin (e.g. the client is hosted separately). Leave unset for the Services setup. |
 
-4. Deploy. `NEXT_PUBLIC_*` values are inlined at build time, so changing the API
-   URL requires a redeploy.
+`NEXT_PUBLIC_*` values are inlined at build time, so changing this value
+requires a redeploy.
 
 ### Route protection
 
@@ -142,7 +174,7 @@ variables; without them registration still succeeds but no mail is sent.
 | --- | --- |
 | `Database is unavailable` (503) | `MONGO_URI` wrong, or the Atlas IP allowlist does not include Vercel |
 | CORS error in the browser | `CLIENT_URL` does not exactly match the client origin (scheme + host, no trailing slash) |
-| Requests hit `/api/api/...` | `NEXT_PUBLIC_API_URL` already ends in `/api`; use the bare host |
+| Requests hit `/api/api/...` | `NEXT_PUBLIC_API_URL` already ends in `/api`; leave it unset or use the bare host |
 | Login succeeds then bounces to `/login` | API unreachable, or 401 from an expired/revoked session — check `active-sessions` |
 | Resume upload returns 413 | File exceeds the 4 MB cap |
 | Scanned PDF rejected | OCR is disabled on Vercel; upload a text-based PDF/DOCX or set `ENABLE_OCR=true` |

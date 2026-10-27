@@ -69,8 +69,8 @@ function ResumePanel({
       setError("Please upload a PDF, DOC, DOCX, or TXT file.");
       return;
     }
-    if (f.size > 5 * 1024 * 1024) {
-      setError("File must be under 5MB.");
+    if (f.size > 4 * 1024 * 1024) {
+      setError("File must be under 4MB.");
       return;
     }
     setFile(f);
@@ -94,7 +94,10 @@ function ResumePanel({
         "/api/resume/analyze",
         formData,
         {
-          headers: { "Content-Type": "multipart/form-data" },
+          // Setting Content-Type to null lets the browser generate the
+          // multipart boundary. A manual "multipart/form-data" header is sent
+          // without a boundary, which makes multer reject the upload.
+          headers: { "Content-Type": null },
           timeout: 120000,
         },
       );
