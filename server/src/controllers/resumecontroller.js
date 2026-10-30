@@ -1,4 +1,4 @@
-const { createLazyGemini } = require("../utils/geminiClient.js");
+const { createLazyGroq } = require("../utils/groqClient.js");
 const pdfjslib = require("pdfjs-dist/legacy/build/pdf.js");
 const path = require("path");
 
@@ -12,7 +12,7 @@ const { createWorker } = require("tesseract.js");
    GROQ
 ========================================================= */
 
-const gemini = createLazyGemini({ timeout: 120000 });
+const groq = createLazyGroq({ timeout: 120000 });
 
 /* =========================================================
    AVAILABLE INTERVIEW DOMAINS
@@ -1411,14 +1411,14 @@ Rules:
     */
 
     console.log(
-      "Sending resume to Gemini..."
+      "Sending resume to Groq..."
     );
 
     const response =
-      await gemini.chat.completions.create({
+      await groq.chat.completions.create({
         model:
-          process.env.GEMINI_MODEL ||
-          "gemini-3.5-flash",
+          process.env.GROQ_MODEL ||
+          "openai/gpt-oss-120b",
 
         messages: [
           {
@@ -1444,7 +1444,7 @@ Rules:
       "";
 
     console.log(
-      "Gemini response received."
+      "Groq response received."
     );
 
     /*
