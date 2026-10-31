@@ -5,6 +5,7 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import axios, { AxiosError } from "axios";
 import axiosInstance from "@/lib/axios";
+import { Eye, EyeOff } from "lucide-react";
 
 function ResetPasswordForm() {
   const router = useRouter();
@@ -151,15 +152,21 @@ function ResetPasswordForm() {
             />
           </div>
 
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-600">
-            <input
-              type="checkbox"
-              checked={showPassword}
-              onChange={(e) => setShowPassword(e.target.checked)}
-              className="h-4 w-4 accent-blue-600"
-            />
-            Show password
-          </label>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? "Hide passwords" : "Show passwords"}
+              className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900 transition-colors"
+            >
+              {showPassword ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
+              {showPassword ? "Hide" : "Show"} password
+            </button>
+          </div>
 
           <p className="text-xs leading-5 text-slate-500">
             Minimum 8 characters, including an uppercase letter, a lowercase
