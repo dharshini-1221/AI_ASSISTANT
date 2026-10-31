@@ -63,6 +63,8 @@ export default function MentorPage() {
   }, [isLoading, isLoggedIn, user, router]);
 
   async function submitReview(item: Interview) {
+    const isReviewed = Boolean(item.mentorReview?.feedback);
+
     const reviewText = (
       feedback[item._id] ?? item.mentorReview?.feedback ?? ""
     ).trim();
@@ -81,7 +83,8 @@ export default function MentorPage() {
     setSavingId(item._id);
 
     try {
-      const { data } = await axiosInstance.patch(
+      const method = isReviewed ? "patch" : "post";
+      const { data } = await axiosInstance[method](
         `/api/mentor/interviews/${item._id}/review`,
         { feedback: reviewText, rating: reviewRating },
       );
