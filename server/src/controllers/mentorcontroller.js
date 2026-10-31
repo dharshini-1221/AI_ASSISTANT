@@ -142,13 +142,14 @@ const submitMentorReview = async (req, res) => {
     }
 
     if (isUpdate) {
-      if (!existingReview?.reviewedBy) {
+      if (!existingReview?.feedback) {
         return res.status(404).json({
           message: "No review exists to update",
         });
       }
 
       if (
+        existingReview.reviewedBy &&
         String(existingReview.reviewedBy) !==
         String(req.userId)
       ) {

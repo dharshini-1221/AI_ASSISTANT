@@ -63,8 +63,6 @@ export default function MentorPage() {
   }, [isLoading, isLoggedIn, user, router]);
 
   async function submitReview(item: Interview) {
-    const isReviewed = Boolean(item.mentorReview?.feedback);
-
     const reviewText = (
       feedback[item._id] ?? item.mentorReview?.feedback ?? ""
     ).trim();
@@ -83,11 +81,23 @@ export default function MentorPage() {
     setSavingId(item._id);
 
     try {
-      const method = isReviewed ? "patch" : "post";
-      const { data } = await axiosInstance[method](
-        `/api/mentor/interviews/${item._id}/review`,
-        { feedback: reviewText, rating: reviewRating },
-      );
+      let data;
+      try {
+        ({ data } = await axiosInstance.post(
+          `/api/mentor/interviews/${item._id}/review`,
+          { feedback: reviewText, rating: reviewRating },
+        ));
+      } catch (firstErr: any) {
+        // If a review already exists, update it instead of creating.
+        if (firstErr?.response?.status === 409) {
+          ({ data } = await axiosInstance.patch(
+            `/api/mentor/interviews/${item._id}/review`,
+            { feedback: reviewText, rating: reviewRating },
+          ));
+        } else {
+          throw firstErr;
+        }
+      }
 
       setInterviews((previous) =>
         previous.map((interview) =>
