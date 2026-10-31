@@ -1,4 +1,3 @@
-
 "use client";
 
 import { Suspense, useState } from "react";
@@ -11,7 +10,12 @@ function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
+  const emailParam = searchParams.get("email") || "";
 
+  const isOtpFlow = !token;
+
+  const [email, setEmail] = useState(emailParam);
+  const [otp, setOtp] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
@@ -27,9 +31,20 @@ function ResetPasswordForm() {
     setMessage("");
     setError("");
 
-    if (!token || token === "YOUR_TOKEN") {
-      setError("Invalid reset link. Please request a new reset link.");
-      return;
+    if (isOtpFlow) {
+      if (!email.trim()) {
+        setError("Email is required.");
+        return;
+      }
+      if (!otp.trim()) {
+        setError("Reset code is required.");
+        return;
+      }
+    } else {
+      if (!token || token === "YOUR_TOKEN") {
+        setError("Invalid reset link. Please request a new reset link.");
+        return;
+      }
     }
 
     if (password !== confirmPassword) {
@@ -54,9 +69,13 @@ function ResetPasswordForm() {
     try {
       setLoading(true);
 
+      const body = isOtpFlow
+        ? { email: email.trim().toLowerCase(), otp: otp.trim(), password }
+        : { token, password };
+
       const response = await axiosInstance.post(
         "/api/auth/reset-password",
-        { token, password }
+        body
       );
 
       setSuccess(true);
@@ -65,6 +84,7 @@ function ResetPasswordForm() {
       );
       setPassword("");
       setConfirmPassword("");
+      setOtp("");
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
         const axiosError = err as AxiosError<{ message?: string }>;
@@ -72,7 +92,7 @@ function ResetPasswordForm() {
         setError(
           axiosError.response?.data?.message ||
             (axiosError.response
-              ? "Reset link is invalid or expired. Request a new link."
+              ? "Reset code is invalid or expired. Request a new one."
               : "Cannot connect to the server. Make sure the backend is running.")
         );
       } else {
@@ -96,11 +116,13 @@ function ResetPasswordForm() {
           </h1>
 
           <p className="mt-3 text-sm leading-6 text-slate-600">
-            Choose a strong new password for your account.
+            {isOtpFlow
+              ? "Enter the code sent to your email along with your new password."
+              : "Choose a strong new password for your account."}
           </p>
         </div>
 
-        {!token && (
+        {!isOtpFlow && !token && (
           <div
             role="alert"
             className="mb-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800"
@@ -110,6 +132,52 @@ function ResetPasswordForm() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
+          {isOtpFlow && (
+            <>
+              <div>
+                <label
+                  htmlFor="email"
+                  className="mb-2 block text-sm font-semibold text-slate-800"
+                >
+                  Email address
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="otp"
+                  className="mb-2 block text-sm font-semibold text-slate-800"
+                >
+                  Reset code
+                </label>
+                <input
+                  id="otp"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  required
+                  maxLength={6}
+                  value={otp}
+                  onChange={(e) =>
+                    setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+                  }
+                  placeholder="6-digit code"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-center text-lg font-bold tracking-[0.3em] text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
+            </>
+          )}
+
           <div>
             <label
               htmlFor="password"
@@ -118,17 +186,31 @@ function ResetPasswordForm() {
               New password
             </label>
 
-            <input
-              id="password"
-              type={showPassword ? "text" : "password"}
-              autoComplete="new-password"
-              required
-              minLength={8}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter new password"
-              className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
-            />
+            <div className="relative">
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
+                required
+                minLength={8}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter new password"
+                className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 pr-10 text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-900 transition-colors"
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
           </div>
 
           <div>
@@ -150,22 +232,6 @@ function ResetPasswordForm() {
               placeholder="Re-enter new password"
               className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
             />
-          </div>
-
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={() => setShowPassword((v) => !v)}
-              aria-label={showPassword ? "Hide passwords" : "Show passwords"}
-              className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900 transition-colors"
-            >
-              {showPassword ? (
-                <EyeOff className="h-4 w-4" />
-              ) : (
-                <Eye className="h-4 w-4" />
-              )}
-              {showPassword ? "Hide" : "Show"} password
-            </button>
           </div>
 
           <p className="text-xs leading-5 text-slate-500">
@@ -194,7 +260,7 @@ function ResetPasswordForm() {
           {!success ? (
             <button
               type="submit"
-              disabled={loading || !token || token === "YOUR_TOKEN"}
+              disabled={loading || (!isOtpFlow && (!token || token === "YOUR_TOKEN"))}
               className="flex w-full items-center justify-center rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white shadow-md transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-400"
             >
               {loading ? "Updating Password..." : "Reset Password"}

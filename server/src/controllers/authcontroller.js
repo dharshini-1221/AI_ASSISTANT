@@ -2,13 +2,12 @@
 const jwt = require("jsonwebtoken");
 const ActiveSession = require("../models/ActiveSession.js");
 const crypto = require("crypto");
-const nodemailer = require("nodemailer");
-
 const User = require("../models/User.js");
 const EmailVerificationToken = require("../models/EmailVerificationToken.js");
 const PasswordResetToken = require("../models/PasswordResetToken.js");
 const {
   sendVerificationEmail,
+  sendPasswordResetOtp,
   sendSuspiciousLoginAlert,
   sendPasswordChangedAlert,
 } = require("../utils/email.js");
@@ -520,11 +519,12 @@ const forgotPassword = async (req, res) => {
       userId: user._id,
     });
 
-    const rawToken = crypto.randomBytes(32).toString("hex");
+    // Generate 6-digit OTP
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
 
     const tokenHash = crypto
       .createHash("sha256")
-      .update(rawToken)
+      .update(otp)
       .digest("hex");
 
     await PasswordResetToken.create({
@@ -533,48 +533,8 @@ const forgotPassword = async (req, res) => {
       expiresAt: new Date(Date.now() + 15 * 60 * 1000),
     });
 
-    const baseUrl =
-      process.env.CLIENT_URL ||
-      (process.env.VERCEL_PROJECT_PRODUCTION_URL
-        ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-        : "") ||
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "") ||
-      "http://localhost:3000";
-    const resetUrl =
-      `${String(baseUrl).trim().replace(/\/+$/, "")}/reset-password?token=${rawToken}`;
-
     try {
-      const transporter = nodemailer.createTransport({
-        host: process.env.EMAIL_HOST,
-        port: Number(process.env.EMAIL_PORT),
-        secure: Number(process.env.EMAIL_PORT) === 465,
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        },
-      });
-
-      await transporter.sendMail({
-        from: `"AI Mock Interview" <${process.env.EMAIL_FROM}>`,
-        to: user.email,
-        subject: "Reset your password",
-        text:
-          `Use this link to reset your password. ` +
-          `It expires in 15 minutes: ${resetUrl}`,
-        html: `
-          <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:24px;">
-            <h2>Password Reset</h2>
-            <p>Hello ${user.name},</p>
-            <p>Click the link below to reset your password.
-               This link expires in 15 minutes.</p>
-            <a href="${resetUrl}"
-               style="display:inline-block;padding:12px 20px;background:#2563eb;color:#fff;text-decoration:none;border-radius:8px;">
-              Reset Password
-            </a>
-            <p>If you did not request this, you can ignore this email.</p>
-          </div>
-        `,
-      });
+      await sendPasswordResetOtp(user.email, user.name, otp);
     } catch (mailError) {
       await PasswordResetToken.deleteMany({
         userId: user._id,
@@ -610,24 +570,84 @@ const forgotPassword = async (req, res) => {
 
 const resetPassword = async (req, res) => {
   try {
-    const { token, password } = req.body;
+    const { token, email, otp, password } = req.body || {};
 
-    if (
-      typeof token !== "string" ||
-      !token ||
-      typeof password !== "string"
-    ) {
+    // Validate new password strength (common to both flows)
+    if (typeof password !== "string") {
       return res.status(400).json({
-        message: "Reset token and new password are required",
+        message: "New password is required",
       });
     }
 
-    // Validate new password strength
     const passwordError = validatePassword(password);
 
     if (passwordError) {
       return res.status(400).json({
         message: passwordError,
+      });
+    }
+
+    // OTP-based flow
+    if (email && otp) {
+      const normalizedEmail = String(email).trim().toLowerCase();
+      const user = await User.findOne({ email: normalizedEmail });
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const otpHash = crypto
+        .createHash("sha256")
+        .update(String(otp).trim())
+        .digest("hex");
+
+      const resetToken = await PasswordResetToken.findOne({
+        userId: user._id,
+        tokenHash: otpHash,
+      });
+
+      if (!resetToken) {
+        return res.status(400).json({
+          message: "Invalid or expired reset code",
+        });
+      }
+
+      if (resetToken.expiresAt <= new Date()) {
+        await PasswordResetToken.deleteOne({ _id: resetToken._id });
+        return res.status(400).json({
+          message: "Reset code has expired",
+        });
+      }
+
+      user.password = password;
+      user.passwordChangedAt = new Date();
+      user.failedLoginAttempts = 0;
+      user.lockUntil = null;
+      user.requirePasswordChange = false;
+
+      await user.save();
+
+      sendPasswordChangedAlert(user.email, user.name).catch((mailError) => {
+        console.error("PASSWORD RESET ALERT ERROR:", mailError.message);
+      });
+
+      await ActiveSession.updateMany(
+        { userId: user._id, revokedAt: null },
+        { $set: { revokedAt: new Date() } },
+      );
+
+      await PasswordResetToken.deleteMany({ userId: user._id });
+
+      return res.status(200).json({
+        success: true,
+        message: "Password reset successfully. Please log in again.",
+      });
+    }
+
+    // Legacy token-based flow
+    if (typeof token !== "string" || !token) {
+      return res.status(400).json({
+        message: "Reset token or OTP is required",
       });
     }
 

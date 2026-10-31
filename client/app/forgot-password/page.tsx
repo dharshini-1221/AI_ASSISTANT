@@ -11,6 +11,7 @@ export default function ForgotPasswordPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
 
   const handleSubmit = async (
     e: React.FormEvent<HTMLFormElement>
@@ -38,6 +39,7 @@ export default function ForgotPasswordPage() {
         response.data?.message ||
           "If an account exists, a reset link will be sent."
       );
+      setSent(true);
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
         // Prefer a generic message to avoid revealing account details.
@@ -98,6 +100,17 @@ export default function ForgotPasswordPage() {
               className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800"
             >
               {message}
+            </div>
+          )}
+
+          {sent && (
+            <div className="text-center">
+              <Link
+                href={`/reset-password?email=${encodeURIComponent(email.trim())}`}
+                className="inline-block rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+              >
+                Enter Reset Code
+              </Link>
             </div>
           )}
 

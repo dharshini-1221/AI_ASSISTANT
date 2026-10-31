@@ -59,6 +59,32 @@ const sendVerificationEmail = async (email, name, otp) => {
   });
 };
 
+// Password reset OTP
+const sendPasswordResetOtp = async (email, name, otp) => {
+  const safeName = escapeHtml(name || "User");
+  const safeOtp = escapeHtml(otp);
+
+  await transporter.sendMail({
+    from: `"AI Mock Interview" <${process.env.EMAIL_FROM}>`,
+    to: email,
+    subject: "Reset your AI Mock Interview password",
+    text: `Hi ${name || "User"}, use this one-time passcode to reset your password: ${otp}. It expires in 15 minutes.`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:30px;border:1px solid #ddd;border-radius:12px;">
+        <h2 style="color:#2563eb;">Password Reset Request</h2>
+        <p>Hi ${safeName},</p>
+        <p>Use the one-time passcode below to reset your password.</p>
+        <p style="margin:30px 0;font-size:32px;font-weight:700;letter-spacing:6px;color:#2563eb;text-align:center;">
+          ${safeOtp}
+        </p>
+        <p>Enter this code along with your new password on the reset page.</p>
+        <p>This code expires in <strong>15 minutes</strong>.</p>
+        <p style="color:#666;font-size:13px;">If you did not request this, ignore this email.</p>
+      </div>
+    `,
+  });
+};
+
 // Suspicious login alert
 const sendSuspiciousLoginAlert = async (
   email,
@@ -115,6 +141,7 @@ const sendPasswordChangedAlert = async (email, name) => {
 
 module.exports = {
   sendVerificationEmail,
+  sendPasswordResetOtp,
   sendSuspiciousLoginAlert,
   sendPasswordChangedAlert,
 };
