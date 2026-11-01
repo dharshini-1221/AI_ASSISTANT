@@ -13,6 +13,12 @@ interface Interview {
   score: number;
   duration: number;
   topic: string;
+  mentorReview?: {
+    feedback: string;
+    rating: number | null;
+    reviewedAt: string | null;
+    reviewerName: string;
+  } | null;
 }
 
 interface ResumeAnalysis {
@@ -740,6 +746,11 @@ const page = () => {
                                 {interview.topic}
                               </p>
                               <ScoreBadge score={interview.score} />
+                              {interview.mentorReview?.feedback && (
+                                <span className="px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 text-[10px] font-bold">
+                                  Reviewed by mentor
+                                </span>
+                              )}
                             </div>
                             <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
                               <span>

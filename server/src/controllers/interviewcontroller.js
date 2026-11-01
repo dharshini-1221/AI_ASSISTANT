@@ -3529,8 +3529,9 @@ const getInterviews = async (req, res) => {
 
     const interviews = await Interview.find(filter)
       .select(
-        "userId domain score duration questionsAnswered questionsSkipped repeatedAnswers communicationScore interviewMode companyName createdAt"
+        "userId domain score duration questionsAnswered questionsSkipped repeatedAnswers communicationScore interviewMode companyName createdAt mentorReview"
       )
+      .populate("mentorReview.reviewedBy", "name")
       .sort({ createdAt: -1 })
       .lean();
 
@@ -3549,6 +3550,17 @@ const getInterviews = async (req, res) => {
       interviewMode: interview.interviewMode || "General",
       companyName: interview.companyName || "",
       date: interview.createdAt,
+
+      // Mentor review (if any) so students can see mentor feedback.
+      mentorReview: interview.mentorReview?.feedback
+        ? {
+            feedback: interview.mentorReview.feedback,
+            rating: interview.mentorReview.rating ?? null,
+            reviewedAt: interview.mentorReview.reviewedAt || null,
+            reviewerName:
+              interview.mentorReview.reviewedBy?.name || "Mentor",
+          }
+        : null,
 
       // Include owner ID for authorized review workflows.
       // Do not return answers or private session messages here.
@@ -3578,14 +3590,11 @@ const getInterviews = async (req, res) => {
 const getInterview =
   async (req, res) => {
     try {
-      const interview =
-        await Interview.findOne({
-          _id:
-            req.params.id,
-
-          userId:
-            req.userId,
-        });
+       const interview =
+         await Interview.findOne({
+           _id: req.params.id,
+           userId: req.userId,
+         }).populate("mentorReview.reviewedBy", "name");
 
       if (!interview) {
         return res

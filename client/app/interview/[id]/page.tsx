@@ -26,6 +26,12 @@ interface Interview {
   createdAt: string;
   finalReport?: { strengths?: string[]; weaknesses?: string[]; summary?: string };
   questions?: Question[];
+  mentorReview?: {
+    feedback?: string;
+    rating?: number | null;
+    reviewedAt?: string;
+    reviewedBy?: { name?: string } | null;
+  } | null;
 }
 
 export default function InterviewDetailsPage() {
@@ -83,6 +89,23 @@ export default function InterviewDetailsPage() {
                 </div>
               ))}
             </div>
+            {interview.mentorReview?.feedback && (
+              <div className="rounded-2xl border border-violet-200 bg-violet-50 p-6 mt-6">
+                <p className="text-xs font-bold text-violet-700 uppercase">Mentor Review</p>
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-2xl font-black text-violet-900">
+                    {interview.mentorReview.rating ?? "—"}/5
+                  </span>
+                  <span className="text-xs text-violet-700">
+                    by {interview.mentorReview.reviewedBy?.name || "Mentor"}
+                    {interview.mentorReview.reviewedAt && ` · ${new Date(interview.mentorReview.reviewedAt).toLocaleDateString()}`}
+                  </span>
+                </div>
+                <p className="text-sm text-violet-900 mt-3 whitespace-pre-wrap leading-relaxed">
+                  {interview.mentorReview.feedback}
+                </p>
+              </div>
+            )}
           </>
         )}
       </div>
